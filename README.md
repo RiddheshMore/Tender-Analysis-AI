@@ -1,21 +1,19 @@
-# 📋 Tender Analysis AI
+# Tender Analysis AI
 
 A powerful Streamlit-based web application that uses open-source AI models to analyze multiple tender documents simultaneously. Built with LangChain, Streamlit, and Hugging Face models for comprehensive procurement document analysis.
 
 ![Tender Analysis AI](https://img.shields.io/badge/AI-Powered-blue) ![Streamlit](https://img.shields.io/badge/Streamlit-1.28+-red) ![Python](https://img.shields.io/badge/Python-3.8+-green) ![LangChain](https://img.shields.io/badge/LangChain-Latest-yellow)
 
-## 🌟 Features
+##  Features
 
-- **📁 Multiple Document Upload**: Upload up to 10 PDF tender documents simultaneously
-- **�� Cross-Document Analysis**: Analyze and compare requirements across multiple tender documents
-- **�� Executive Summary Generation**: AI-generated comprehensive summaries covering all uploaded documents
-- **✅ Compliance Requirements Extraction**: Automated extraction of key eligibility and compliance criteria
-- **💬 Interactive Q&A with Sources**: Chat interface with source document references for answers
-- **📈 Document Statistics**: Overview of processed files and text chunks
-- **🌍 Global Support**: Works with tender documents from any country or organization
-- **🔒 Privacy-First**: All processing done using open-source models via Hugging Face API
+-  Multiple Document Upload: Upload up to 10 PDF tender documents simultaneously
+-  Cross-Document Analysis: Analyze and compare requirements across multiple tender documents
+-  Executive Summary Generation: AI-generated comprehensive summaries covering all uploaded documents
+-  Compliance Requirements Extraction: Automated extraction of key eligibility and compliance criteria
+-  Interactive Q&A with Sources: Chat interface with source document references for answers
+-  Document Statistics: Overview of processed files and text chunks
 
-## 🛠️ Technology Stack
+##  Technology Stack
 
 - **Frontend**: Streamlit
 - **AI/ML**: 
@@ -25,7 +23,7 @@ A powerful Streamlit-based web application that uses open-source AI models to an
 - **Document Processing**: PyPDF, LangChain
 - **Backend**: Python 3.8+
 
-## 🚀 Quick Start
+##  Quick Start
 
 ### Prerequisites
 
@@ -64,7 +62,7 @@ A powerful Streamlit-based web application that uses open-source AI models to an
 
 6. **Open your browser** to `http://localhost:8501`
 
-## 📖 Usage
+## Usage
 
 1. **Upload Documents**: Select up to 10 PDF tender documents using the file uploader
 2. **View Document Overview**: Review statistics showing files processed and text chunks created
@@ -78,7 +76,7 @@ A powerful Streamlit-based web application that uses open-source AI models to an
 - "What is the project scope?"
 - "What are the payment terms?"
 
-## 🏗️ Project Structure
+##  Project Structure
 
 ```
 Tender-Analysis-AI/
@@ -90,7 +88,7 @@ Tender-Analysis-AI/
 └── sample-data/            # Sample tender documents (optional)
 ```
 
-## 🔧 Configuration
+## Configuration
 
 ### Environment Variables
 
@@ -108,7 +106,7 @@ HUGGINGFACEHUB_API_TOKEN="your_huggingface_token_here"
 4. Create a new token with "Read" permissions
 5. Copy and paste it into your `.env` file
 
-## �� Supported Document Types
+## Supported Document Types
 
 - **Government Tenders**: Public procurement documents from any country
 - **Corporate RFPs**: Request for Proposals from private companies
@@ -116,16 +114,6 @@ HUGGINGFACEHUB_API_TOKEN="your_huggingface_token_here"
 - **Construction Bids**: Infrastructure and construction project tenders
 - **IT/Software Tenders**: Technology procurement documents
 - **Service Contracts**: Professional services tender documents
-
-## 🤝 Contributing
-
-Contributions are welcome! Please feel free to submit a Pull Request. For major changes, please open an issue first to discuss what you would like to change.
-
-1. Fork the repository
-2. Create your feature branch (`git checkout -b feature/AmazingFeature`)
-3. Commit your changes (`git commit -m 'Add some AmazingFeature'`)
-4. Push to the branch (`git push origin feature/AmazingFeature`)
-5. Open a Pull Request
 
 ## 📄 License
 
@@ -144,15 +132,5 @@ If you encounter any issues or have questions:
 - [LangChain](https://langchain.com/) for the powerful AI orchestration
 - [Hugging Face](https://huggingface.co/) for open-source AI models
 - [FAISS](https://faiss.ai/) for efficient vector search
-
-## 📊 Roadmap
-
-- [ ] Support for Word documents (.docx)
-- [ ] Batch processing capabilities
-- [ ] Advanced filtering and search
-- [ ] Export analysis results
-- [ ] Multi-language support
-- [ ] Custom model integration
-- [ ] API endpoints for integration
 
 ---
