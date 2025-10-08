@@ -1,0 +1,8 @@
+# Deployment-optimized requirements for Tender Digest AI
+# Minimal dependencies for fast deployment on free platforms
+
+streamlit>=1.28.0
+PyPDF2>=3.0.1
+
+# Python standard library only - no heavy ML dependencies
+# This version uses rule-based analysis for optimal performance
