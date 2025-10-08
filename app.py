@@ -8,6 +8,23 @@ import json
 import base64
 from typing import List, Dict, Any
 import time
+import warnings
+warnings.filterwarnings('ignore')
+
+# AI/ML imports with error handling (updated imports)
+try:
+    from langchain_community.document_loaders import PyPDFLoader
+    from langchain.text_splitter import RecursiveCharacterTextSplitter
+    from langchain_community.embeddings import HuggingFaceEmbeddings
+    from langchain_community.vectorstores import FAISS
+    from langchain_huggingface import ChatHuggingFace, HuggingFaceEndpoint
+    from langchain.chains import ConversationalRetrievalChain
+    from langchain.memory import ConversationBufferMemory
+    from langchain.schema import Document
+    AI_AVAILABLE = True
+except ImportError as e:
+    print(f"AI modules not available: {e}")
+    AI_AVAILABLE = False
 
 # Set page config
 st.set_page_config(
@@ -16,6 +33,67 @@ st.set_page_config(
     layout="wide",
     initial_sidebar_state="expanded"
 )
+
+# Deployment optimizations
+@st.cache_resource
+def load_embeddings():
+    """Load embeddings with caching for deployment optimization"""
+    if not AI_AVAILABLE:
+        return None
+    try:
+        return HuggingFaceEmbeddings(
+            model_name="sentence-transformers/all-MiniLM-L6-v2",
+            model_kwargs={'device': 'cpu'},
+            encode_kwargs={'normalize_embeddings': True}
+        )
+    except Exception as e:
+        st.error(f"Failed to load embeddings: {e}")
+        return None
+
+@st.cache_resource
+def load_llm():
+    """Load LLM with caching and error handling"""
+    if not AI_AVAILABLE:
+        return None
+    try:
+        # Original model with deployment optimizations
+        repo_id = "openai/gpt-oss-20b"
+        llm = HuggingFaceEndpoint(
+            repo_id=repo_id,
+            max_length=1024,
+            temperature=0.7,
+            top_k=50,
+            top_p=0.95,
+            typical_p=0.95,
+            repetition_penalty=1.03,
+            timeout=60,  # Increased timeout for larger model
+            model_kwargs={
+                "max_new_tokens": 512,
+                "return_full_text": False
+            }
+        )
+        return ChatHuggingFace(llm=llm)
+    except Exception as e:
+        st.warning(f"Primary model unavailable, trying fallback: {e}")
+        # Fallback to smaller model
+        try:
+            repo_id = "microsoft/DialoGPT-medium"
+            llm = HuggingFaceEndpoint(
+                repo_id=repo_id,
+                max_length=512,
+                temperature=0.5,
+                timeout=30
+            )
+            return ChatHuggingFace(llm=llm)
+        except Exception as e2:
+            st.error(f"All models unavailable: {e2}")
+            return None
+
+# Global variables for caching
+if 'embeddings' not in st.session_state:
+    st.session_state.embeddings = None
+if 'llm' not in st.session_state:
+    st.session_state.llm = None
 
 # Enhanced CSS with modern styling and animations
 st.markdown("""
@@ -229,32 +307,215 @@ st.markdown("""
 </div>
 """, unsafe_allow_html=True)
 
-class FastTenderAnalyzer:
-    """Lightweight tender analysis using rule-based methods for fast deployment"""
+class TenderAnalyzer:
+    """Original LangChain-based tender analysis with HuggingFace models"""
     
     def __init__(self):
-        self.tender_keywords = {
-            'construction': ['construction', 'building', 'infrastructure', 'civil work', 'concrete', 'steel', 'contractor'],
-            'it_software': ['software', 'IT', 'computer', 'system', 'application', 'development', 'programming'],
-            'medical': ['medical', 'healthcare', 'hospital', 'pharmaceutical', 'equipment', 'surgical'],
-            'transportation': ['transport', 'vehicle', 'logistics', 'shipping', 'delivery', 'freight'],
-            'education': ['education', 'school', 'university', 'training', 'academic', 'learning'],
-            'security': ['security', 'surveillance', 'guard', 'safety', 'protection', 'monitoring'],
-            'maintenance': ['maintenance', 'repair', 'service', 'upkeep', 'cleaning', 'facility'],
-            'supply': ['supply', 'procurement', 'purchase', 'goods', 'materials', 'equipment']
-        }
+        self.embeddings = None
+        self.llm = None
+        self.vectorstore = None
+        self.conversation_chain = None
         
-        self.risk_indicators = [
-            'urgent', 'immediate', 'emergency', 'single source', 'limited time',
-            'restricted', 'pre-qualified', 'invitation only', 'complex technical'
-        ]
+        # Initialize models
+        self.load_models()
+    
+    def load_models(self):
+        """Load LangChain models and embeddings with optimization"""
+        try:
+            # Use cached models if available
+            if st.session_state.embeddings is None:
+                st.info("🔄 Loading AI embeddings... This may take a moment.")
+                st.session_state.embeddings = load_embeddings()
+            
+            if st.session_state.llm is None:
+                st.info("🤖 Loading AI language model... This may take a moment.")
+                st.session_state.llm = load_llm()
+            
+            # Use cached models
+            self.embeddings = st.session_state.embeddings
+            self.llm = st.session_state.llm
+            
+            if self.embeddings and self.llm:
+                st.success("✅ AI models loaded successfully!")
+                return True
+            else:
+                st.warning("⚠️ Some AI models failed to load. Analysis may be limited.")
+                return False
+            
+        except Exception as e:
+            st.error(f"Failed to load AI models: {e}")
+            st.info("Please check your internet connection and try again.")
+            return False
+    
+    def process_multiple_pdfs(self, uploaded_files):
+        """Process multiple PDF files and create vector store"""
+        try:
+            documents = []
+            
+            for uploaded_file in uploaded_files:
+                # Save uploaded file temporarily
+                temp_path = f"/tmp/{uploaded_file.name}"
+                with open(temp_path, "wb") as f:
+                    f.write(uploaded_file.getbuffer())
+                
+                # Load PDF using LangChain
+                loader = PyPDFLoader(temp_path)
+                docs = loader.load()
+                
+                # Add metadata
+                for doc in docs:
+                    doc.metadata['filename'] = uploaded_file.name
+                
+                documents.extend(docs)
+                
+                # Clean up temp file
+                os.remove(temp_path)
+            
+            if not documents:
+                st.error("No documents could be processed")
+                return False
+            
+            # Split documents
+            text_splitter = RecursiveCharacterTextSplitter(
+                chunk_size=1000,
+                chunk_overlap=200,
+                length_function=len
+            )
+            
+            splits = text_splitter.split_documents(documents)
+            
+            # Create vector store
+            if self.embeddings:
+                self.vectorstore = FAISS.from_documents(splits, self.embeddings)
+                
+                # Create conversation chain
+                memory = ConversationBufferMemory(
+                    memory_key="chat_history",
+                    return_messages=True
+                )
+                
+                self.conversation_chain = ConversationalRetrievalChain.from_llm(
+                    llm=self.llm,
+                    retriever=self.vectorstore.as_retriever(search_kwargs={"k": 3}),
+                    memory=memory,
+                    return_source_documents=True
+                )
+                
+                return True
+            
+            return False
+            
+        except Exception as e:
+            st.error(f"Error processing PDFs: {e}")
+            return False
+    
+    def analyze_text_smart(self, query: str) -> Dict[str, Any]:
+        """Smart analysis using LangChain and LLM"""
+        if not self.conversation_chain:
+            return {"error": "Analysis chain not initialized"}
         
-        self.value_patterns = [
-            r'₹\s*[\d,]+(?:\.\d+)?(?:\s*(?:crore|lakh|thousand))?',
-            r'\$\s*[\d,]+(?:\.\d+)?(?:\s*(?:million|billion|thousand))?',
-            r'EUR\s*[\d,]+(?:\.\d+)?(?:\s*(?:million|billion|thousand))?',
-            r'value:\s*[\d,]+', r'amount:\s*[\d,]+', r'budget:\s*[\d,]+'
-        ]
+        try:
+            # Enhanced prompts for better analysis
+            analysis_queries = {
+                "category": f"""
+                Analyze this tender document and categorize it. Consider these categories:
+                - Construction & Infrastructure
+                - IT & Software Development  
+                - Medical & Healthcare
+                - Transportation & Logistics
+                - Education & Training
+                - Security & Surveillance
+                - Maintenance & Services
+                - Supply & Procurement
+                - Consulting & Advisory
+                - Legal & Compliance
+                
+                Question: What is the primary category of this tender? Provide category and confidence level.
+                Context: {query[:500]}
+                """,
+                
+                "key_info": f"""
+                Extract key information from this tender document:
+                - Tender number/reference
+                - Organization/Department issuing
+                - Estimated value/budget
+                - Submission deadline
+                - Location/area of work
+                - Key requirements
+                
+                Question: What are the key details of this tender?
+                Context: {query[:500]}
+                """,
+                
+                "risk_assessment": f"""
+                Assess the risk level of this tender considering:
+                - Technical complexity
+                - Time constraints
+                - Financial requirements
+                - Competition level
+                - Compliance requirements
+                
+                Question: What is the risk level (High/Medium/Low) and why?
+                Context: {query[:500]}
+                """,
+                
+                "recommendations": f"""
+                Based on this tender analysis, provide 5-8 actionable recommendations for potential bidders:
+                - Preparation strategies
+                - Key focus areas
+                - Risk mitigation
+                - Competitive advantages
+                
+                Question: What are the top recommendations for this tender?
+                Context: {query[:500]}
+                """
+            }
+            
+            results = {}
+            
+            # Run analysis queries
+            for analysis_type, analysis_query in analysis_queries.items():
+                try:
+                    response = self.conversation_chain({
+                        "question": analysis_query,
+                        "chat_history": []
+                    })
+                    
+                    results[analysis_type] = {
+                        "answer": response.get("answer", ""),
+                        "sources": [doc.metadata.get('filename', 'Unknown') 
+                                  for doc in response.get("source_documents", [])]
+                    }
+                    
+                except Exception as e:
+                    results[analysis_type] = {"error": str(e)}
+            
+            return results
+            
+        except Exception as e:
+            return {"error": f"Analysis failed: {e}"}
+    
+    def enhanced_search(self, query: str, k: int = 5) -> Dict[str, Any]:
+        """Enhanced search with source documents"""
+        if not self.vectorstore:
+            return {"error": "Vector store not initialized"}
+        
+        try:
+            # Similarity search
+            docs = self.vectorstore.similarity_search(query, k=k)
+            
+            results = []
+            for doc in docs:
+                results.append({
+                    "content": doc.page_content[:300] + "...",
+                    "filename": doc.metadata.get('filename', 'Unknown'),
+                    "page": doc.metadata.get('page', 'Unknown')
+                })
+            
+            return {"results": results}
+            
+        except Exception as e:
+            return {"error": f"Search failed: {e}"}
 
     def extract_text_from_pdf(self, pdf_file) -> str:
         """Extract text from PDF using PyPDF2"""
@@ -457,7 +718,7 @@ class FastTenderAnalyzer:
 def main():
     # Initialize analyzer
     if 'analyzer' not in st.session_state:
-        st.session_state.analyzer = FastTenderAnalyzer()
+        st.session_state.analyzer = TenderAnalyzer()
     
     # Enhanced Sidebar
     st.sidebar.markdown("""
@@ -533,11 +794,11 @@ def main():
         st.markdown("</div>", unsafe_allow_html=True)
         
         if analyze_button:
-            # Enhanced progress display
+            # Process PDFs with AI
             st.markdown("""
             <div class="progress-container">
                 <h4 style="text-align: center; color: #667eea; margin-bottom: 1rem;">
-                    🔄 Analyzing Your Documents...
+                    🤖 AI-Powered Analysis in Progress...
                 </h4>
             </div>
             """, unsafe_allow_html=True)
@@ -545,38 +806,51 @@ def main():
             progress_bar = st.progress(0)
             status_text = st.empty()
             
-            all_results = []
+            # Step 1: Process PDFs and create vector store
+            status_text.markdown("""
+            <div style="text-align: center; padding: 1rem; background: #f8f9fa; border-radius: 10px; margin: 1rem 0;">
+                <h5 style="color: #667eea; margin: 0;">� Processing Documents with LangChain...</h5>
+                <p style="color: #6c757d; margin: 0.5rem 0 0 0;">Creating vector embeddings for intelligent analysis</p>
+            </div>
+            """, unsafe_allow_html=True)
+            progress_bar.progress(0.3)
             
-            for i, file in enumerate(uploaded_files):
-                # Enhanced status display
-                status_text.markdown(f"""
+            # Process PDFs
+            if st.session_state.analyzer.process_multiple_pdfs(uploaded_files):
+                progress_bar.progress(0.6)
+                
+                # Step 2: Perform AI analysis
+                status_text.markdown("""
                 <div style="text-align: center; padding: 1rem; background: #f8f9fa; border-radius: 10px; margin: 1rem 0;">
-                    <h5 style="color: #667eea; margin: 0;">📄 Processing: {file.name}</h5>
-                    <p style="color: #6c757d; margin: 0.5rem 0 0 0;">Extracting and analyzing content...</p>
+                    <h5 style="color: #667eea; margin: 0;">🧠 Running AI Analysis...</h5>
+                    <p style="color: #6c757d; margin: 0.5rem 0 0 0;">Generating insights with HuggingFace models</p>
                 </div>
                 """, unsafe_allow_html=True)
                 
-                progress_bar.progress((i + 1) / len(uploaded_files))
+                # Combine all document text for analysis
+                combined_text = ""
+                for file in uploaded_files:
+                    # This would be replaced with proper document retrieval
+                    combined_text += f"Document: {file.name}\n"
                 
-                # Extract text
-                text = st.session_state.analyzer.extract_text_from_pdf(file)
+                # Run AI analysis
+                ai_results = st.session_state.analyzer.analyze_text_smart(combined_text[:2000])  # Limit for performance
+                progress_bar.progress(1.0)
                 
-                if text:
-                    # Perform analysis
-                    analysis_result = {
+                # Format results for display
+                all_results = []
+                for i, file in enumerate(uploaded_files):
+                    result = {
                         'filename': file.name,
-                        'category': st.session_state.analyzer.analyze_tender_category(text),
-                        'key_info': st.session_state.analyzer.extract_key_information(text),
-                        'competition': st.session_state.analyzer.assess_competition_level(text),
-                        'risk': st.session_state.analyzer.calculate_risk_score(text),
-                        'text_length': len(text),
-                        'word_count': len(text.split())
+                        'ai_analysis': ai_results,
+                        'file_size': file.size,
+                        'status': 'completed'
                     }
-                    
-                    if include_recommendations:
-                        analysis_result['recommendations'] = st.session_state.analyzer.generate_recommendations(analysis_result)
-                    
-                    all_results.append(analysis_result)
+                    all_results.append(result)
+                
+            else:
+                st.error("Failed to process documents. Please try again.")
+                return
             
             # Completion message with animation
             status_text.markdown("""
@@ -598,7 +872,7 @@ def main():
             """, unsafe_allow_html=True)
             
             # Enhanced Summary metrics with animations
-            st.markdown("### 📈 Key Metrics Dashboard")
+            st.markdown("### 📈 AI Analysis Dashboard")
             col1, col2, col3, col4 = st.columns(4)
             
             with col1:
@@ -610,79 +884,100 @@ def main():
                 """.format(len(all_results)), unsafe_allow_html=True)
             
             with col2:
-                categories = [r['category']['primary_category'] for r in all_results]
-                unique_cats = len(set(categories))
                 st.markdown("""
                 <div class="metric-card">
-                    <h3>{}</h3>
-                    <p>Unique Categories</p>
+                    <h3>AI</h3>
+                    <p>Analysis Mode</p>
                 </div>
-                """.format(unique_cats), unsafe_allow_html=True)
+                """, unsafe_allow_html=True)
             
             with col3:
-                high_risk = sum(1 for r in all_results if r['risk']['level'] == 'High')
                 st.markdown("""
                 <div class="metric-card">
-                    <h3>{}</h3>
-                    <p>High Risk Tenders</p>
+                    <h3>✓</h3>
+                    <p>LangChain Powered</p>
                 </div>
-                """.format(high_risk), unsafe_allow_html=True)
+                """, unsafe_allow_html=True)
             
             with col4:
-                high_competition = sum(1 for r in all_results if r['competition']['level'] == 'High')
                 st.markdown("""
                 <div class="metric-card">
-                    <h3>{}</h3>
-                    <p>High Competition</p>
+                    <h3>🤖</h3>
+                    <p>HuggingFace Models</p>
                 </div>
-                """.format(high_competition), unsafe_allow_html=True)
+                """, unsafe_allow_html=True)
             
-            # Individual results
-            for i, result in enumerate(all_results):
-                st.markdown(f"### 📄 {result['filename']}")
+            # AI Analysis Results Display
+            st.markdown("### 🤖 AI-Powered Analysis Results")
+            
+            # Display AI analysis for each category
+            if ai_results and not ai_results.get('error'):
                 
-                col1, col2 = st.columns([2, 1])
+                # Category Analysis
+                if 'category' in ai_results:
+                    st.markdown("#### 🏷️ Tender Categorization")
+                    category_info = ai_results['category']
+                    if not category_info.get('error'):
+                        st.markdown(f"""
+                        <div class="analysis-result">
+                            <p><strong>AI Analysis:</strong></p>
+                            <p>{category_info.get('answer', 'Analysis in progress...')}</p>
+                            <p><strong>Sources:</strong> {', '.join(category_info.get('sources', []))}</p>
+                        </div>
+                        """, unsafe_allow_html=True)
                 
-                with col1:
-                    st.markdown(f"""
-                    <div class="analysis-result">
-                        <h4>🏷️ Category: {result['category']['primary_category']}</h4>
-                        <p><strong>Confidence:</strong> {result['category']['confidence']:.1f}%</p>
-                        
-                        <h4>📋 Key Information:</h4>
-                        <ul>
-                            <li><strong>Tender Number:</strong> {result['key_info']['tender_number'] or 'Not found'}</li>
-                            <li><strong>Organization:</strong> {result['key_info']['organization'] or 'Not found'}</li>
-                            <li><strong>Estimated Value:</strong> {result['key_info']['estimated_value'] or 'Not found'}</li>
-                            <li><strong>Deadline:</strong> {result['key_info']['deadline'] or 'Not found'}</li>
-                        </ul>
-                    </div>
-                    """, unsafe_allow_html=True)
+                # Key Information
+                if 'key_info' in ai_results:
+                    st.markdown("#### 📋 Key Information Extraction")
+                    key_info = ai_results['key_info']
+                    if not key_info.get('error'):
+                        st.markdown(f"""
+                        <div class="analysis-result">
+                            <p><strong>AI Analysis:</strong></p>
+                            <p>{key_info.get('answer', 'Analysis in progress...')}</p>
+                            <p><strong>Sources:</strong> {', '.join(key_info.get('sources', []))}</p>
+                        </div>
+                        """, unsafe_allow_html=True)
                 
-                with col2:
-                    st.markdown(f"""
-                    <div class="feature-card">
-                        <h4>🎯 Competition Level</h4>
-                        <p><strong>{result['competition']['level']}</strong></p>
-                        <p>Confidence: {result['competition']['confidence']:.1f}%</p>
-                        
-                        <h4>⚠️ Risk Score</h4>
-                        <p><strong>{result['risk']['level']}</strong></p>
-                        <p>Score: {result['risk']['score']:.1f}%</p>
-                        
-                        <h4>📊 Document Stats</h4>
-                        <p>Words: {result['word_count']:,}</p>
-                        <p>Characters: {result['text_length']:,}</p>
-                    </div>
-                    """, unsafe_allow_html=True)
+                # Risk Assessment
+                if 'risk_assessment' in ai_results:
+                    st.markdown("#### ⚠️ Risk Assessment")
+                    risk_info = ai_results['risk_assessment']
+                    if not risk_info.get('error'):
+                        st.markdown(f"""
+                        <div class="analysis-result">
+                            <p><strong>AI Analysis:</strong></p>
+                            <p>{risk_info.get('answer', 'Analysis in progress...')}</p>
+                            <p><strong>Sources:</strong> {', '.join(risk_info.get('sources', []))}</p>
+                        </div>
+                        """, unsafe_allow_html=True)
                 
                 # Recommendations
-                if include_recommendations and 'recommendations' in result:
-                    st.markdown("#### 💡 Recommendations:")
-                    for j, rec in enumerate(result['recommendations'], 1):
-                        st.markdown(f"{j}. {rec}")
-                
-                st.markdown("---")
+                if include_recommendations and 'recommendations' in ai_results:
+                    st.markdown("#### 💡 AI-Generated Recommendations")
+                    rec_info = ai_results['recommendations']
+                    if not rec_info.get('error'):
+                        st.markdown(f"""
+                        <div class="analysis-result">
+                            <p><strong>AI Recommendations:</strong></p>
+                            <p>{rec_info.get('answer', 'Generating recommendations...')}</p>
+                            <p><strong>Sources:</strong> {', '.join(rec_info.get('sources', []))}</p>
+                        </div>
+                        """, unsafe_allow_html=True)
+            
+            else:
+                st.error("AI analysis failed. Please try again.")
+            
+            # Document Processing Summary
+            st.markdown("### 📄 Document Processing Summary")
+            for i, result in enumerate(all_results):
+                st.markdown(f"""
+                <div class="document-card">
+                    <h4>📄 {result['filename']}</h4>
+                    <p><strong>Size:</strong> {result['file_size'] / 1024:.1f} KB</p>
+                    <p><strong>Status:</strong> ✅ {result['status'].title()}</p>
+                </div>
+                """, unsafe_allow_html=True)
             
             # Download results
             if st.button("📥 Download Analysis Report"):
