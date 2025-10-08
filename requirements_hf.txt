@@ -1,0 +1,29 @@
+# HuggingFace optimized requirements
+# Streamlit framework
+streamlit>=1.28.0
+
+# LangChain Core - Use specific versions for HF compatibility
+langchain==0.1.0
+langchain-core==0.1.23
+langchain-community==0.0.20
+
+# Hugging Face Integration - Optimized versions
+langchain-huggingface==0.0.3
+transformers==4.36.0
+sentence-transformers==2.2.2
+huggingface-hub>=0.19.0
+
+# Optimized dependencies for HuggingFace Spaces
+torch==2.1.0+cpu --find-links https://download.pytorch.org/whl/torch_stable.html
+accelerate==0.25.0
+
+# PDF Processing
+PyPDF2==3.0.1
+
+# Vector Store
+faiss-cpu==1.7.4
+
+# Utilities
+numpy==1.24.3
+requests==2.31.0
+python-dotenv==1.0.0
