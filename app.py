@@ -7,6 +7,7 @@ from datetime import datetime
 import json
 import base64
 from typing import List, Dict, Any
+import time
 
 # Set page config
 st.set_page_config(
@@ -16,50 +17,107 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# Enhanced CSS with modern styling
+# Enhanced CSS with modern styling and animations
 st.markdown("""
 <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+    
     .main-header {
         background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-        padding: 2rem;
-        border-radius: 15px;
+        padding: 3rem;
+        border-radius: 20px;
         margin-bottom: 2rem;
-        box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+        box-shadow: 0 20px 60px rgba(102, 126, 234, 0.3);
+        text-align: center;
+        position: relative;
+        overflow: hidden;
+    }
+    .main-header::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: radial-gradient(circle at 30% 50%, rgba(255,255,255,0.1) 0%, transparent 50%);
     }
     .main-header h1 {
         color: white;
         text-align: center;
         margin: 0;
-        font-size: 2.5rem;
+        font-size: 3.5rem;
         font-weight: 700;
+        font-family: 'Inter', sans-serif;
+        text-shadow: 0 2px 10px rgba(0,0,0,0.3);
+        position: relative;
+        z-index: 2;
     }
     .main-header p {
-        color: rgba(255,255,255,0.9);
+        color: rgba(255,255,255,0.95);
         text-align: center;
-        margin: 0.5rem 0 0 0;
-        font-size: 1.1rem;
+        margin: 1rem 0 0 0;
+        font-size: 1.3rem;
+        font-weight: 400;
+        position: relative;
+        z-index: 2;
     }
     .feature-card {
-        background: white;
-        padding: 1.5rem;
-        border-radius: 10px;
-        box-shadow: 0 4px 15px rgba(0,0,0,0.08);
-        margin-bottom: 1rem;
-        border-left: 4px solid #667eea;
+        background: linear-gradient(145deg, #ffffff 0%, #f8f9fa 100%);
+        padding: 2rem;
+        border-radius: 15px;
+        box-shadow: 0 8px 32px rgba(0,0,0,0.1);
+        margin-bottom: 1.5rem;
+        border: 1px solid rgba(102, 126, 234, 0.1);
+        transition: all 0.3s ease;
+        position: relative;
+        overflow: hidden;
+    }
+    .feature-card::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 4px;
+        height: 100%;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    }
+    .feature-card:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 15px 45px rgba(102, 126, 234, 0.2);
     }
     .metric-card {
-        background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
         color: white;
-        padding: 1rem;
-        border-radius: 10px;
+        padding: 2rem;
+        border-radius: 15px;
         text-align: center;
-        margin: 0.5rem 0;
+        margin: 1rem 0;
+        box-shadow: 0 10px 30px rgba(102, 126, 234, 0.3);
+        transition: all 0.3s ease;
+        position: relative;
+        overflow: hidden;
+    }
+    .metric-card:hover {
+        transform: translateY(-3px);
+        box-shadow: 0 15px 40px rgba(102, 126, 234, 0.4);
+    }
+    .metric-card h3 {
+        font-size: 2.5rem;
+        font-weight: 700;
+        margin: 0;
+        text-shadow: 0 2px 10px rgba(0,0,0,0.2);
+    }
+    .metric-card p {
+        font-size: 1rem;
+        margin: 0.5rem 0 0 0;
+        opacity: 0.9;
     }
     .analysis-result {
-        background: #f8f9fa;
-        padding: 1.5rem;
-        border-radius: 10px;
-        border-left: 4px solid #28a745;
+        background: linear-gradient(145deg, #ffffff 0%, #f8f9fa 100%);
+        padding: 2rem;
+        border-radius: 15px;
+        border: 1px solid rgba(40, 167, 69, 0.2);
+        box-shadow: 0 8px 32px rgba(40, 167, 69, 0.1);
         margin: 1rem 0;
     }
     .warning-box {
@@ -86,21 +144,88 @@ st.markdown("""
         background: linear-gradient(180deg, #f8f9fa 0%, #e9ecef 100%);
     }
     .upload-section {
-        border: 2px dashed #667eea;
-        border-radius: 10px;
-        padding: 2rem;
+        border: 3px dashed rgba(102, 126, 234, 0.3);
+        border-radius: 20px;
+        padding: 3rem;
         text-align: center;
+        background: linear-gradient(145deg, #f8f9fa 0%, #ffffff 100%);
+        margin: 2rem 0;
+        transition: all 0.3s ease;
+        position: relative;
+    }
+    .upload-section:hover {
+        border-color: #667eea;
+        background: linear-gradient(145deg, #ffffff 0%, #f8f9fa 100%);
+        transform: translateY(-2px);
+        box-shadow: 0 10px 30px rgba(102, 126, 234, 0.1);
+    }
+    .sidebar-header {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        padding: 1.5rem;
+        border-radius: 10px;
+        margin-bottom: 1rem;
+        text-align: center;
+    }
+    .progress-container {
         background: #f8f9fa;
+        border-radius: 10px;
+        padding: 1rem;
         margin: 1rem 0;
+    }
+    .success-message {
+        background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+        color: white;
+        padding: 1rem;
+        border-radius: 10px;
+        text-align: center;
+        margin: 1rem 0;
+        animation: slideIn 0.5s ease;
+    }
+    @keyframes slideIn {
+        from { opacity: 0; transform: translateY(-20px); }
+        to { opacity: 1; transform: translateY(0); }
+    }
+    .document-card {
+        background: linear-gradient(145deg, #ffffff 0%, #f8f9fa 100%);
+        border: 1px solid rgba(102, 126, 234, 0.1);
+        border-radius: 12px;
+        padding: 1.5rem;
+        margin: 1rem 0;
+        transition: all 0.3s ease;
+        box-shadow: 0 4px 15px rgba(0,0,0,0.05);
+    }
+    .document-card:hover {
+        transform: translateY(-3px);
+        box-shadow: 0 8px 25px rgba(102, 126, 234, 0.15);
+        border-color: #667eea;
     }
 </style>
 """, unsafe_allow_html=True)
 
-# Header
+# Enhanced Header with Statistics
 st.markdown("""
 <div class="main-header">
-    <h1>📊 Tender Digest AI</h1>
-    <p>Global Tender Analysis & Intelligence System - Fast & Free Version</p>
+    <h1>� Tender Digest AI</h1>
+    <p>Advanced Global Tender Analysis & Intelligence Platform</p>
+    <div style="display: flex; justify-content: center; gap: 2rem; margin-top: 2rem; flex-wrap: wrap;">
+        <div style="text-align: center;">
+            <div style="font-size: 2rem; font-weight: 700;">⚡</div>
+            <div style="font-size: 0.9rem; opacity: 0.9;">Lightning Fast</div>
+        </div>
+        <div style="text-align: center;">
+            <div style="font-size: 2rem; font-weight: 700;">🎯</div>
+            <div style="font-size: 0.9rem; opacity: 0.9;">Smart Analysis</div>
+        </div>
+        <div style="text-align: center;">
+            <div style="font-size: 2rem; font-weight: 700;">📊</div>
+            <div style="font-size: 0.9rem; opacity: 0.9;">Rich Insights</div>
+        </div>
+        <div style="text-align: center;">
+            <div style="font-size: 2rem; font-weight: 700;">🌍</div>
+            <div style="font-size: 0.9rem; opacity: 0.9;">Global Support</div>
+        </div>
+    </div>
 </div>
 """, unsafe_allow_html=True)
 
@@ -334,11 +459,15 @@ def main():
     if 'analyzer' not in st.session_state:
         st.session_state.analyzer = FastTenderAnalyzer()
     
-    # Sidebar
-    st.sidebar.markdown("### 📤 Upload Documents")
-    st.sidebar.markdown("Upload up to 10 PDF tender documents for analysis")
+    # Enhanced Sidebar
+    st.sidebar.markdown("""
+    <div class="sidebar-header">
+        <h3>📤 Upload Documents</h3>
+        <p>Drag & drop up to 10 PDF files</p>
+    </div>
+    """, unsafe_allow_html=True)
     
-    # File uploader
+    # File uploader with enhanced styling
     uploaded_files = st.sidebar.file_uploader(
         "Choose PDF files",
         type="pdf",
@@ -365,30 +494,68 @@ def main():
         help="Generate actionable recommendations"
     )
     
-    # Main content
+    # Main content with enhanced UI
     if uploaded_files:
-        st.markdown(f"### 📄 Documents Uploaded: {len(uploaded_files)}")
+        st.markdown(f"""
+        <div style="text-align: center; margin: 2rem 0;">
+            <h2 style="color: #667eea; font-weight: 700;">📄 Documents Ready for Analysis</h2>
+            <p style="color: #6c757d; font-size: 1.1rem;">{len(uploaded_files)} files uploaded successfully</p>
+        </div>
+        """, unsafe_allow_html=True)
         
-        # Display uploaded files
-        cols = st.columns(min(len(uploaded_files), 3))
+        # Enhanced document display with hover effects
+        cols = st.columns(min(len(uploaded_files), 4))
         for i, file in enumerate(uploaded_files):
-            with cols[i % 3]:
+            with cols[i % 4]:
+                file_size_mb = file.size / (1024 * 1024)
+                size_display = f"{file_size_mb:.2f} MB" if file_size_mb >= 1 else f"{file.size / 1024:.1f} KB"
+                
                 st.markdown(f"""
-                <div class="feature-card">
-                    <h4>📄 {file.name}</h4>
-                    <p>Size: {file.size / 1024:.1f} KB</p>
+                <div class="document-card">
+                    <div style="text-align: center; margin-bottom: 1rem;">
+                        <div style="font-size: 2.5rem; color: #667eea; margin-bottom: 0.5rem;">📄</div>
+                        <h4 style="margin: 0; color: #2c3e50; font-weight: 600;">{file.name[:20]}{'...' if len(file.name) > 20 else ''}</h4>
+                        <p style="margin: 0.5rem 0 0 0; color: #6c757d; font-size: 0.9rem;">📊 {size_display}</p>
+                        <div style="margin-top: 0.5rem; padding: 0.25rem 0.75rem; background: rgba(102, 126, 234, 0.1); border-radius: 12px; display: inline-block;">
+                            <span style="color: #667eea; font-size: 0.8rem; font-weight: 500;">✓ Ready</span>
+                        </div>
+                    </div>
                 </div>
                 """, unsafe_allow_html=True)
         
-        # Analysis button
-        if st.button("🚀 Analyze Tender Documents", type="primary"):
+        # Enhanced Analysis Button
+        st.markdown("<div style='text-align: center; margin: 2rem 0;'>", unsafe_allow_html=True)
+        analyze_button = st.button(
+            "🚀 Start Intelligent Analysis", 
+            type="primary",
+            help="Click to analyze all uploaded documents with AI-powered insights"
+        )
+        st.markdown("</div>", unsafe_allow_html=True)
+        
+        if analyze_button:
+            # Enhanced progress display
+            st.markdown("""
+            <div class="progress-container">
+                <h4 style="text-align: center; color: #667eea; margin-bottom: 1rem;">
+                    🔄 Analyzing Your Documents...
+                </h4>
+            </div>
+            """, unsafe_allow_html=True)
+            
             progress_bar = st.progress(0)
             status_text = st.empty()
             
             all_results = []
             
             for i, file in enumerate(uploaded_files):
-                status_text.text(f"Analyzing {file.name}...")
+                # Enhanced status display
+                status_text.markdown(f"""
+                <div style="text-align: center; padding: 1rem; background: #f8f9fa; border-radius: 10px; margin: 1rem 0;">
+                    <h5 style="color: #667eea; margin: 0;">📄 Processing: {file.name}</h5>
+                    <p style="color: #6c757d; margin: 0.5rem 0 0 0;">Extracting and analyzing content...</p>
+                </div>
+                """, unsafe_allow_html=True)
+                
                 progress_bar.progress((i + 1) / len(uploaded_files))
                 
                 # Extract text
@@ -411,13 +578,27 @@ def main():
                     
                     all_results.append(analysis_result)
             
-            status_text.text("Analysis complete!")
+            # Completion message with animation
+            status_text.markdown("""
+            <div class="success-message">
+                <h4 style="margin: 0;">✅ Analysis Complete!</h4>
+                <p style="margin: 0.5rem 0 0 0;">All documents have been successfully analyzed</p>
+            </div>
+            """, unsafe_allow_html=True)
             progress_bar.progress(1.0)
             
-            # Display results
-            st.markdown("## 📊 Analysis Results")
+            time.sleep(1)  # Brief pause for user experience
             
-            # Summary metrics
+            # Enhanced Results Header
+            st.markdown("""
+            <div style="text-align: center; margin: 3rem 0 2rem 0;">
+                <h1 style="color: #667eea; font-weight: 700; font-size: 2.5rem;">📊 Intelligent Analysis Results</h1>
+                <p style="color: #6c757d; font-size: 1.2rem;">Comprehensive insights from your tender documents</p>
+            </div>
+            """, unsafe_allow_html=True)
+            
+            # Enhanced Summary metrics with animations
+            st.markdown("### 📈 Key Metrics Dashboard")
             col1, col2, col3, col4 = st.columns(4)
             
             with col1:
@@ -524,39 +705,86 @@ def main():
                 """, unsafe_allow_html=True)
     
     else:
-        # Welcome screen
+        # Enhanced Welcome screen
         st.markdown("""
         <div class="upload-section">
-            <h3>🚀 Welcome to Tender Digest AI</h3>
-            <p>This is the fast, deployment-optimized version designed for free hosting platforms.</p>
-            <p>Upload your tender documents using the sidebar to get started!</p>
+            <div style="font-size: 4rem; margin-bottom: 1rem;">🚀</div>
+            <h2 style="color: #667eea; font-weight: 700; margin-bottom: 1rem;">Welcome to Tender Digest AI</h2>
+            <p style="font-size: 1.1rem; color: #6c757d; margin-bottom: 1.5rem;">
+                Transform your tender analysis with intelligent automation
+            </p>
+            <div style="display: flex; justify-content: center; gap: 1rem; margin-bottom: 1.5rem;">
+                <span style="background: rgba(102, 126, 234, 0.1); color: #667eea; padding: 0.5rem 1rem; border-radius: 20px; font-size: 0.9rem;">
+                    ⚡ Lightning Fast
+                </span>
+                <span style="background: rgba(102, 126, 234, 0.1); color: #667eea; padding: 0.5rem 1rem; border-radius: 20px; font-size: 0.9rem;">
+                    🎯 AI-Powered
+                </span>
+                <span style="background: rgba(102, 126, 234, 0.1); color: #667eea; padding: 0.5rem 1rem; border-radius: 20px; font-size: 0.9rem;">
+                    📊 Rich Insights
+                </span>
+            </div>
+            <p style="color: #495057; font-weight: 500;">
+                👈 Upload your PDF tender documents using the sidebar to get started
+            </p>
         </div>
         """, unsafe_allow_html=True)
         
-        # Feature overview
+        # Enhanced Feature overview with animations
+        st.markdown("### ✨ Powerful Features")
         col1, col2, col3 = st.columns(3)
         
         with col1:
             st.markdown("""
             <div class="feature-card">
-                <h4>🏷️ Smart Categorization</h4>
-                <p>Automatically categorize tenders by industry and type using advanced keyword analysis.</p>
+                <div style="text-align: center; margin-bottom: 1rem;">
+                    <div style="font-size: 3rem; color: #667eea;">🏷️</div>
+                </div>
+                <h4 style="color: #2c3e50; text-align: center; margin-bottom: 1rem;">Smart Categorization</h4>
+                <p style="text-align: center; color: #6c757d; line-height: 1.6;">
+                    Automatically categorize tenders by industry, type, and complexity using advanced pattern recognition
+                </p>
+                <div style="text-align: center; margin-top: 1rem;">
+                    <span style="background: rgba(102, 126, 234, 0.1); color: #667eea; padding: 0.25rem 0.75rem; border-radius: 12px; font-size: 0.8rem;">
+                        8+ Categories
+                    </span>
+                </div>
             </div>
             """, unsafe_allow_html=True)
         
         with col2:
             st.markdown("""
             <div class="feature-card">
-                <h4>📊 Risk Assessment</h4>
-                <p>Evaluate tender complexity and competition levels to make informed decisions.</p>
+                <div style="text-align: center; margin-bottom: 1rem;">
+                    <div style="font-size: 3rem; color: #667eea;">📊</div>
+                </div>
+                <h4 style="color: #2c3e50; text-align: center; margin-bottom: 1rem;">Risk Assessment</h4>
+                <p style="text-align: center; color: #6c757d; line-height: 1.6;">
+                    Evaluate tender complexity, competition levels, and potential risks to make informed bidding decisions
+                </p>
+                <div style="text-align: center; margin-top: 1rem;">
+                    <span style="background: rgba(102, 126, 234, 0.1); color: #667eea; padding: 0.25rem 0.75rem; border-radius: 12px; font-size: 0.8rem;">
+                        Multi-Factor Analysis
+                    </span>
+                </div>
             </div>
             """, unsafe_allow_html=True)
         
         with col3:
             st.markdown("""
             <div class="feature-card">
-                <h4>💡 Smart Recommendations</h4>
-                <p>Get actionable insights and recommendations for each tender opportunity.</p>
+                <div style="text-align: center; margin-bottom: 1rem;">
+                    <div style="font-size: 3rem; color: #667eea;">💡</div>
+                </div>
+                <h4 style="color: #2c3e50; text-align: center; margin-bottom: 1rem;">Smart Recommendations</h4>
+                <p style="text-align: center; color: #6c757d; line-height: 1.6;">
+                    Get actionable insights and strategic recommendations tailored to each tender opportunity
+                </p>
+                <div style="text-align: center; margin-top: 1rem;">
+                    <span style="background: rgba(102, 126, 234, 0.1); color: #667eea; padding: 0.25rem 0.75rem; border-radius: 12px; font-size: 0.8rem;">
+                        Actionable Insights
+                    </span>
+                </div>
             </div>
             """, unsafe_allow_html=True)
         
