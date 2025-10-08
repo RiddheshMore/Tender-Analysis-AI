@@ -6,14 +6,12 @@ A powerful Streamlit-based web application that uses open-source AI models to an
 
 ##  Features
 
-- ** Multiple Document Upload**: Upload up to 10 PDF tender documents simultaneously
-- ** Cross-Document Analysis**: Analyze and compare requirements across multiple tender documents
-- ** Executive Summary Generation**: AI-generated comprehensive summaries covering all uploaded documents
-- ** Compliance Requirements Extraction**: Automated extraction of key eligibility and compliance criteria
-- ** Interactive Q&A with Sources**: Chat interface with source document references for answers
-- ** Document Statistics**: Overview of processed files and text chunks
-- ** Global Support**: Works with tender documents from any country or organization
-- ** Privacy-First**: All processing done using open-source models via Hugging Face API
+-  Multiple Document Upload: Upload up to 10 PDF tender documents simultaneously
+-  Cross-Document Analysis: Analyze and compare requirements across multiple tender documents
+-  Executive Summary Generation: AI-generated comprehensive summaries covering all uploaded documents
+-  Compliance Requirements Extraction: Automated extraction of key eligibility and compliance criteria
+-  Interactive Q&A with Sources: Chat interface with source document references for answers
+-  Document Statistics: Overview of processed files and text chunks
 
 ##  Technology Stack
 
